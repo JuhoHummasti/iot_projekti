@@ -1,4 +1,4 @@
-package fi.oulu.envirowatch.ui
+package fi.oulu.picow.sensormonitor.ui
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
