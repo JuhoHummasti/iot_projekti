@@ -15,13 +15,13 @@ import fi.oulu.picow.sensormonitor.ui.history.HistoryViewModel
 class MainActivity : ComponentActivity() {
 
     private val measurementViewModel: MeasurementViewModel by viewModels()
+    enum class AppScreen { MAIN, HISTORY }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
         setContent {
             // Simple navigation state: MAIN or HISTORY
-            enum class AppScreen { MAIN, HISTORY }
 
             var currentScreen by remember { mutableStateOf(AppScreen.MAIN) }
 
