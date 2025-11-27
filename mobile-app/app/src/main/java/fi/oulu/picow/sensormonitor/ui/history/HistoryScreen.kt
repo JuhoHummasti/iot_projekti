@@ -10,10 +10,11 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.filled.ArrowForward
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
@@ -28,6 +29,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import fi.oulu.picow.sensormonitor.data.HistoryPoint
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -38,6 +40,9 @@ fun HistoryScreen(
     val currentRange = viewModel.selectedRange
     val periodLabel = viewModel.getCurrentPeriodLabel()
 
+    //  👇 NEW: read history loading state
+    val uiState = viewModel.uiState
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -46,7 +51,7 @@ fun HistoryScreen(
                     if (onBack != null) {
                         IconButton(onClick = onBack) {
                             Icon(
-                                imageVector = Icons.Default.ArrowBack,
+                                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                                 contentDescription = "Back"
                             )
                         }
@@ -62,7 +67,7 @@ fun HistoryScreen(
                 .fillMaxSize(),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // Range chips: 24h / Week / Month / Year
+            // Range: 24h / Week / Month / Year
             RangeSelectorRow(
                 selected = currentRange,
                 onSelect = { range -> viewModel.selectRange(range) }
@@ -76,17 +81,82 @@ fun HistoryScreen(
                 onNext = { viewModel.goToNextPeriod() }
             )
 
-            // Chart placeholder
-            HistoryChartPlaceholder(
-                selectedRange = currentRange,
-                periodLabel = periodLabel
-            )
+            when (uiState) {
+                is HistoryUiState.Loading -> {
+                    LoadingHistoryCard(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .weight(1f),
+                        selectedRange = currentRange,
+                        periodLabel = periodLabel
+                    )
+                }
 
-            // Optional legend / note
+                is HistoryUiState.Error -> {
+                    ErrorHistoryCard(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .weight(1f),
+                        message = uiState.message
+                    )
+                }
+
+                is HistoryUiState.Success -> {
+                    SuccessHistoryCard(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .weight(1f),
+                        selectedRange = currentRange,
+                        periodLabel = periodLabel,
+                        points = uiState.points
+                    )
+                }
+            }
+
+        }
+    }
+}
+
+@Composable
+private fun LoadingHistoryCard(
+    modifier: Modifier = Modifier,
+    selectedRange: HistoryRange,
+    periodLabel: String
+) {
+    Card(
+        modifier = modifier,
+        shape = RoundedCornerShape(12.dp),
+        elevation = CardDefaults.cardElevation(4.dp)
+    ) {
+        Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.Center
+        ) {
+            CircularProgressIndicator()
+        }
+    }
+}
+
+@Composable
+private fun ErrorHistoryCard(
+    modifier: Modifier = Modifier,
+    message: String
+) {
+    Card(
+        modifier = modifier,
+        shape = RoundedCornerShape(12.dp),
+        elevation = CardDefaults.cardElevation(4.dp)
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(24.dp),
+            contentAlignment = Alignment.Center
+        ) {
             Text(
-                text = "Note: Data is mocked for now. Real sensor history " +
-                        "will be loaded from the cloud later.",
-                style = MaterialTheme.typography.bodySmall
+                text = "Error loading history:\n$message",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.error
             )
         }
     }
@@ -106,9 +176,7 @@ private fun RangeSelectorRow(
             FilterChip(
                 selected = isSelected,
                 onClick = { onSelect(range) },
-                label = {
-                    Text(text = range.label)
-                }
+                label = { Text(text = range.label) }
             )
         }
     }
@@ -128,7 +196,7 @@ private fun PeriodNavigationRow(
     ) {
         IconButton(onClick = onPrev) {
             Icon(
-                imageVector = Icons.Default.ArrowBack,
+                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                 contentDescription = "Previous period"
             )
         }
@@ -144,7 +212,7 @@ private fun PeriodNavigationRow(
             enabled = canGoNext
         ) {
             Icon(
-                imageVector = Icons.Default.ArrowForward,
+                imageVector = Icons.AutoMirrored.Filled.ArrowForward,
                 contentDescription = "Next period"
             )
         }
@@ -152,67 +220,59 @@ private fun PeriodNavigationRow(
 }
 
 @Composable
-private fun HistoryChartPlaceholder(
+private fun SuccessHistoryCard(
+    modifier: Modifier = Modifier,
     selectedRange: HistoryRange,
-    periodLabel: String
+    periodLabel: String,
+    points: List<HistoryPoint>
 ) {
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
+    Card(
+        modifier = modifier,    // <-- no weight here
+        shape = RoundedCornerShape(12.dp),
+        elevation = CardDefaults.cardElevation(4.dp)
     ) {
-        Card(
+        Column(
             modifier = Modifier
-                .fillMaxWidth()
-                .weight(1f), // take remaining height
-            shape = RoundedCornerShape(12.dp),
-            elevation = CardDefaults.cardElevation(4.dp)
+                .fillMaxSize()
+                .padding(16.dp),
+            verticalArrangement = Arrangement.SpaceBetween
         ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(16.dp),
-                verticalArrangement = Arrangement.SpaceBetween
-            ) {
-                Column(
-                    verticalArrangement = Arrangement.spacedBy(4.dp)
-                ) {
-                    Text(
-                        text = "Temperature & pressure history",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                    Text(
-                        text = "${selectedRange.label} · $periodLabel",
-                        style = MaterialTheme.typography.bodyMedium
-                    )
-                }
 
-                // Fake "chart" area for now
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .weight(1f)
-                        .padding(vertical = 16.dp)
-                        .background(
-                            color = MaterialTheme.colorScheme.surfaceVariant,
-                            shape = RoundedCornerShape(8.dp)
-                        ),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = "Chart placeholder\n(no real data yet)",
-                        style = MaterialTheme.typography.bodyMedium
-                    )
-                }
-
+            // Header
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text(
-                    text = "In the final version, this area will show line charts " +
-                            "for temperature and pressure over time.",
-                    style = MaterialTheme.typography.bodySmall
+                    text = "Temperature history",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold
+                )
+                Text(
+                    text = "${selectedRange.label} · $periodLabel",
+                    style = MaterialTheme.typography.bodyMedium
                 )
             }
+
+            //  👇 TEMPORARY visualization
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f)
+                    .padding(vertical = 16.dp)
+                    .background(
+                        color = MaterialTheme.colorScheme.surfaceVariant,
+                        shape = RoundedCornerShape(8.dp)
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "Points: ${points.size}\n(first value = ${points.firstOrNull()?.value ?: "-"} )",
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            }
+
+            Text(
+                text = "Real chart coming next…",
+                style = MaterialTheme.typography.bodySmall
+            )
         }
     }
 }

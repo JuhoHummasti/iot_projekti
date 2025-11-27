@@ -1,7 +1,16 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
+}
+
+val localProps = Properties().apply {
+    val file = rootProject.file("local.properties")
+    if (file.exists()) {
+        file.inputStream().use { load(it) }
+    }
 }
 
 android {
@@ -18,8 +27,17 @@ android {
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-    }
+        val influxBaseUrl = (localProps["INFLUX_BASE_URL"] as String?) ?: ""
+        val influxToken = (localProps["INFLUX_TOKEN"] as String?) ?: ""
+        val influxOrg = (localProps["INFLUX_ORG"] as String?) ?: ""
+        val influxBucket = (localProps["INFLUX_BUCKET"] as String?) ?: ""
 
+        buildConfigField("String", "INFLUX_BASE_URL", "\"$influxBaseUrl\"")
+        buildConfigField("String", "INFLUX_TOKEN", "\"$influxToken\"")
+        buildConfigField("String", "INFLUX_ORG", "\"$influxOrg\"")
+        buildConfigField("String", "INFLUX_BUCKET", "\"$influxBucket\"")
+    }
+    android.buildFeatures.buildConfig = true
     buildTypes {
         release {
             isMinifyEnabled = false
@@ -52,6 +70,10 @@ dependencies {
     implementation(libs.androidx.compose.material3)
     implementation(libs.androidx.lifecycle.viewmodel.compose)
     implementation(libs.androidx.compose.ui.text)
+    implementation(libs.androidx.compose.material.icons)
+    implementation(libs.retrofit2)
+    implementation(libs.retrofit2.converter.scalars) // for CSV/text
+    implementation(libs.okhttp3.logging.interceptor)
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)

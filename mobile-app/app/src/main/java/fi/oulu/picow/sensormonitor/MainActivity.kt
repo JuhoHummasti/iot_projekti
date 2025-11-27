@@ -1,4 +1,4 @@
-package fi.oulu.picow.sensormonitor.ui
+package fi.oulu.picow.sensormonitor
 
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -9,6 +9,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.viewmodel.compose.viewModel
+import fi.oulu.picow.sensormonitor.ui.MainDashboardScreen
+import fi.oulu.picow.sensormonitor.ui.MeasurementViewModel
 import fi.oulu.picow.sensormonitor.ui.history.HistoryScreen
 import fi.oulu.picow.sensormonitor.ui.history.HistoryViewModel
 
