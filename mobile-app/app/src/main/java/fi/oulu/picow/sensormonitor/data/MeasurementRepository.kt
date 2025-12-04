@@ -7,20 +7,28 @@ import java.util.Date
 import java.util.Locale
 
 class MeasurementRepository {
-    private val timeFormat = SimpleDateFormat("HH:mm:ss", Locale.getDefault())
+
+    private val influxRepository = InfluxRepository()
 
     suspend fun getLatestMeasurement(): Measurement {
-        // Simulate network delay
-        delay(800)
+        // Get last 24h history
+        val history = influxRepository.getTemperatureHistory24h()
 
-        val now = timeFormat.format(Date())
+        // Fallback if no data
+        val latest = history.lastOrNull()
+            ?: return Measurement(
+                deviceId = "pico-01",
+                temperatureC = Double.NaN,
+                pressureHpa = 0.0,
+                timestamp = "No data"
+            )
 
-        // Mock values – later replaced by real API
+        // You can later also fetch pressure etc.
         return Measurement(
             deviceId = "pico-01",
-            temperatureC = 21.5,
-            pressureHpa = 1007.3,
-            timestamp = now
+            temperatureC = latest.value,
+            pressureHpa = 0.0,
+            timestamp = latest.time
         )
     }
 }

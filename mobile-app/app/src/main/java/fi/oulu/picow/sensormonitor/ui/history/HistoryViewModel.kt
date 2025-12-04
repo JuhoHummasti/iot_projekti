@@ -90,10 +90,7 @@ class HistoryViewModel(
 
         viewModelScope.launch {
             try {
-                // TODO: later switch on selectedRange + periodOffset
-                // and call different repository methods
                 val points = repository.getTemperatureHistory24h()
-
                 uiState = HistoryUiState.Success(points)
             } catch (e: Exception) {
                 e.printStackTrace()

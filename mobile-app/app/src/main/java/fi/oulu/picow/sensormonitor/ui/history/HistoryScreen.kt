@@ -1,6 +1,5 @@
 package fi.oulu.picow.sensormonitor.ui.history
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -39,8 +38,6 @@ fun HistoryScreen(
 ) {
     val currentRange = viewModel.selectedRange
     val periodLabel = viewModel.getCurrentPeriodLabel()
-
-    //  👇 NEW: read history loading state
     val uiState = viewModel.uiState
 
     Scaffold(
@@ -67,13 +64,11 @@ fun HistoryScreen(
                 .fillMaxSize(),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // Range: 24h / Week / Month / Year
             RangeSelectorRow(
                 selected = currentRange,
                 onSelect = { range -> viewModel.selectRange(range) }
             )
 
-            // Period navigation: arrows + label
             PeriodNavigationRow(
                 label = periodLabel,
                 canGoNext = viewModel.periodOffset < 0,
@@ -83,81 +78,94 @@ fun HistoryScreen(
 
             when (uiState) {
                 is HistoryUiState.Loading -> {
-                    LoadingHistoryCard(
+                    Box(
                         modifier = Modifier
                             .fillMaxWidth()
                             .weight(1f),
-                        selectedRange = currentRange,
-                        periodLabel = periodLabel
-                    )
+                        contentAlignment = Alignment.Center
+                    ) {
+                        CircularProgressIndicator()
+                    }
                 }
 
                 is HistoryUiState.Error -> {
-                    ErrorHistoryCard(
+                    Box(
                         modifier = Modifier
                             .fillMaxWidth()
                             .weight(1f),
-                        message = uiState.message
-                    )
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = uiState.message,
+                            color = MaterialTheme.colorScheme.error
+                        )
+                    }
                 }
 
                 is HistoryUiState.Success -> {
-                    SuccessHistoryCard(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .weight(1f),
+                    HistoryChartDataCard(
+                        points = uiState.points,
                         selectedRange = currentRange,
                         periodLabel = periodLabel,
-                        points = uiState.points
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .weight(1f)
                     )
                 }
             }
-
         }
     }
 }
 
 @Composable
-private fun LoadingHistoryCard(
-    modifier: Modifier = Modifier,
+private fun HistoryChartDataCard(
+    points: List<HistoryPoint>,
     selectedRange: HistoryRange,
-    periodLabel: String
+    periodLabel: String,
+    modifier: Modifier = Modifier
 ) {
     Card(
         modifier = modifier,
         shape = RoundedCornerShape(12.dp),
         elevation = CardDefaults.cardElevation(4.dp)
     ) {
-        Box(
-            modifier = Modifier.fillMaxSize(),
-            contentAlignment = Alignment.Center
-        ) {
-            CircularProgressIndicator()
-        }
-    }
-}
-
-@Composable
-private fun ErrorHistoryCard(
-    modifier: Modifier = Modifier,
-    message: String
-) {
-    Card(
-        modifier = modifier,
-        shape = RoundedCornerShape(12.dp),
-        elevation = CardDefaults.cardElevation(4.dp)
-    ) {
-        Box(
+        Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(24.dp),
-            contentAlignment = Alignment.Center
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             Text(
-                text = "Error loading history:\n$message",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.error
+                text = "Temperature history",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold
             )
+            Text(
+                text = "${selectedRange.label} · $periodLabel",
+                style = MaterialTheme.typography.bodyMedium
+            )
+
+            if (points.isEmpty()) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text("No data in this period")
+                }
+            } else {
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(top = 8.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    // For now: show last 20 points as text
+                    points.takeLast(20).forEach { p ->
+                        Text("${p.time}  →  ${p.value}")
+                    }
+                }
+            }
         }
     }
 }
@@ -214,64 +222,6 @@ private fun PeriodNavigationRow(
             Icon(
                 imageVector = Icons.AutoMirrored.Filled.ArrowForward,
                 contentDescription = "Next period"
-            )
-        }
-    }
-}
-
-@Composable
-private fun SuccessHistoryCard(
-    modifier: Modifier = Modifier,
-    selectedRange: HistoryRange,
-    periodLabel: String,
-    points: List<HistoryPoint>
-) {
-    Card(
-        modifier = modifier,    // <-- no weight here
-        shape = RoundedCornerShape(12.dp),
-        elevation = CardDefaults.cardElevation(4.dp)
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(16.dp),
-            verticalArrangement = Arrangement.SpaceBetween
-        ) {
-
-            // Header
-            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text(
-                    text = "Temperature history",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold
-                )
-                Text(
-                    text = "${selectedRange.label} · $periodLabel",
-                    style = MaterialTheme.typography.bodyMedium
-                )
-            }
-
-            //  👇 TEMPORARY visualization
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .weight(1f)
-                    .padding(vertical = 16.dp)
-                    .background(
-                        color = MaterialTheme.colorScheme.surfaceVariant,
-                        shape = RoundedCornerShape(8.dp)
-                    ),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = "Points: ${points.size}\n(first value = ${points.firstOrNull()?.value ?: "-"} )",
-                    style = MaterialTheme.typography.bodyMedium
-                )
-            }
-
-            Text(
-                text = "Real chart coming next…",
-                style = MaterialTheme.typography.bodySmall
             )
         }
     }

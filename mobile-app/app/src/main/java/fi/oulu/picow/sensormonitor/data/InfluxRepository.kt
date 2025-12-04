@@ -22,13 +22,13 @@ class InfluxRepository {
 
     suspend fun getTemperatureHistory24h(): List<HistoryPoint> = withContext(Dispatchers.IO) {
         val flux = """
-            from(bucket: "${BuildConfig.INFLUX_BUCKET}")
-              |> range(start: -24h)
-              |> filter(fn: (r) => r._measurement == "Laki/temp")
-              |> keep(columns: ["_time", "_value"])
-        """.trimIndent()
+        from(bucket: "${BuildConfig.INFLUX_BUCKET}")
+          |> range(start: -24h)
+          |> filter(fn: (r) => r._measurement == "Laki/temp")
+          |> keep(columns: ["_time", "_value"])
+    """.trimIndent()
 
-        // IMPORTANT: set the correct content type here
+        // Correct content type
         val body = flux.toRequestBody("application/vnd.flux".toMediaType())
 
         val response = InfluxClient.api.queryFluxCsv(
@@ -46,29 +46,46 @@ class InfluxRepository {
         val csv = response.body()?.string().orEmpty()
         Log.d(TAG, "CSV response:\n$csv")
 
-        // --- very naive CSV parsing just to get you started ---
-        val lines = csv.lines()
-            .filter { it.isNotBlank() && !it.startsWith("#") }
+        // ---- tolerant CSV parsing ----
+        val dataLines = csv.lines()
+            .map { it.trim() }
+            .filter { it.isNotEmpty() && !it.startsWith("#") }
 
-        if (lines.isEmpty()) return@withContext emptyList()
+        if (dataLines.isEmpty()) {
+            Log.w(TAG, "No non-comment lines in CSV")
+            return@withContext emptyList()
+        }
 
-        val header = lines.first()
-        val headerCols = header.split(",")
+        // Find the header line that actually contains _time and _value
+        val headerIndex = dataLines.indexOfFirst { line ->
+            line.contains("_time") && line.contains("_value")
+        }
 
+        if (headerIndex == -1) {
+            Log.e(TAG, "Could not find header with _time / _value in CSV")
+            return@withContext emptyList()
+        }
+
+        val headerCols = dataLines[headerIndex].split(",")
         val timeIndex = headerCols.indexOf("_time")
         val valueIndex = headerCols.indexOf("_value")
 
         if (timeIndex == -1 || valueIndex == -1) {
-            Log.e(TAG, "CSV header does not contain _time / _value")
+            Log.e(TAG, "Header does not contain _time / _value: $headerCols")
             return@withContext emptyList()
         }
 
-        lines.drop(1).mapNotNull { line ->
-            val cols = line.split(",")
-            val time = cols.getOrNull(timeIndex) ?: return@mapNotNull null
-            val valueStr = cols.getOrNull(valueIndex) ?: return@mapNotNull null
-            val value = valueStr.toDoubleOrNull() ?: return@mapNotNull null
-            HistoryPoint(time = time, value = value)
-        }
+        val result = dataLines
+            .drop(headerIndex + 1) // lines after the header are data rows
+            .mapNotNull { line ->
+                val cols = line.split(",")
+                val time = cols.getOrNull(timeIndex) ?: return@mapNotNull null
+                val valueStr = cols.getOrNull(valueIndex) ?: return@mapNotNull null
+                val value = valueStr.toDoubleOrNull() ?: return@mapNotNull null
+                HistoryPoint(time = time, value = value)
+            }
+
+        Log.d(TAG, "Parsed ${result.size} history points")
+        result
     }
 }
