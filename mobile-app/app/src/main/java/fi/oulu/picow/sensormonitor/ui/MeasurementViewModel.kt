@@ -32,7 +32,7 @@ class MeasurementViewModel(
             try {
                 val measurement = repository.getLatestMeasurement()
                 _uiState.value = MeasurementUiState.Success(measurement)
-            } catch (e: Exception) {
+            } catch (_: Exception) {
                 _uiState.value = MeasurementUiState.Error("Failed to load data")
             }
         }
