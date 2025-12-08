@@ -12,7 +12,10 @@ import kotlinx.coroutines.launch
 // UI state for the history screen
 sealed interface HistoryUiState {
     object Loading : HistoryUiState
-    data class Success(val points: List<HistoryPoint>) : HistoryUiState
+    data class Success(
+        val temperature: List<HistoryPoint>,
+        val pressure: List<HistoryPoint>
+    ) : HistoryUiState
     data class Error(val message: String) : HistoryUiState
 }
 
@@ -82,16 +85,19 @@ class HistoryViewModel(
 
     /**
      * Load history data from InfluxDB using the repository.
-     * For now we always call getTemperatureHistory24h(), but you can
-     * extend the repository later to support week/month/year + offsets.
+     * For now we always do 24h, but both temperature and pressure.
      */
     private fun refreshHistory() {
         uiState = HistoryUiState.Loading
 
         viewModelScope.launch {
             try {
-                val points = repository.getTemperatureHistory24h()
-                uiState = HistoryUiState.Success(points)
+                val temp = repository.getTemperatureHistory24h()
+                val pressure = repository.getPressureHistory24h()
+                uiState = HistoryUiState.Success(
+                    temperature = temp,
+                    pressure = pressure
+                )
             } catch (e: Exception) {
                 e.printStackTrace()
                 uiState = HistoryUiState.Error("Failed to load history data")

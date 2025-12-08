@@ -1,34 +1,36 @@
 package fi.oulu.picow.sensormonitor.data
 
 import fi.oulu.picow.sensormonitor.model.Measurement
-import kotlinx.coroutines.delay
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
 
 class MeasurementRepository {
 
     private val influxRepository = InfluxRepository()
 
     suspend fun getLatestMeasurement(): Measurement {
-        // Get last 24h history
-        val history = influxRepository.getTemperatureHistory24h()
+        val tempHistory = influxRepository.getTemperatureHistory24h()
+        val presHistory = influxRepository.getPressureHistory24h()
 
-        // Fallback if no data
-        val latest = history.lastOrNull()
-            ?: return Measurement(
+        val latestTemp = tempHistory.lastOrNull()
+        val latestPres = presHistory.lastOrNull()
+
+        if (latestTemp == null && latestPres == null) {
+            return Measurement(
                 deviceId = "pico-01",
                 temperatureC = Double.NaN,
-                pressureHpa = 0.0,
+                pressureHpa = Double.NaN,
                 timestamp = "No data"
             )
+        }
 
-        // You can later also fetch pressure etc.
+        val temperature = latestTemp?.value ?: Double.NaN
+        val pressure = latestPres?.value ?: Double.NaN
+        val timestamp = latestTemp?.time ?: latestPres?.time ?: "No data"
+
         return Measurement(
             deviceId = "pico-01",
-            temperatureC = latest.value,
-            pressureHpa = 0.0,
-            timestamp = latest.time
+            temperatureC = temperature,
+            pressureHpa = pressure,
+            timestamp = timestamp
         )
     }
 }
