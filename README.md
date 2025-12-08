@@ -1,4 +1,5 @@
-##This project is a weather application that collects data from a sensor using
+##
+This project is a weather application that collects data from a sensor using
 Raspberry Pi Pico W circuitry. The Pico W uses wireless connectivity to send
 the data into the cloud and then is forwarded to the database. The two data
 points are then retrieved from the database and visualized in the mobile appli-
