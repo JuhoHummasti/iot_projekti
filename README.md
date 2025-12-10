@@ -51,7 +51,7 @@ Install InfluxDB. https://docs.influxdata.com/influxdb/v2/install/?t=Windows+Pow
 
 Unextract the files. Open CMD and move to the directory, where the files are located.
 
-Then run command ".\influxd.exe"
+Then run command `.\influxd.exe`
 
 ![alt text](image-10.png)
 
@@ -63,9 +63,9 @@ Install nodejs. https://nodejs.org/en
 
 Open CMD as administrator and run the following commands.
 
-"npm install -g --unsafe-perm node-red"
+`npm install -g --unsafe-perm node-red`
 
-"node-red" < start node
+`node-red` < start node
 
 ![alt text](image-7.png)
 
