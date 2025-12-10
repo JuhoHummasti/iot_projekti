@@ -7,7 +7,7 @@ A temperature that is too low will turn on the LED***
 
 ## Getting Started 
 
-# STEP 1 (thonny):
+# Step 1 (thonny):
 Download thonny.
 https://micropython.org/download/RPI_PICO_W/
 
@@ -23,14 +23,14 @@ Change the parameters of MQTT CONFIG and the Wifi connection.
 
 NOTE! MQTT_BROKER, PORT, USER and PASSWORD will get from HIVEMQ.
 
-# STEP 2 (HiveMQ):
+# Step 2 (HiveMQ):
 Login to HiveMQ or create an account.
 
 Create a new cluster and select free.
 
 Manage cluster and copy the URL and the port into your main.py
 
-![alt text](image-7.png)
+![alt text](image.png)
 
 Go to access management in your service and add credentials.
 
@@ -39,4 +39,12 @@ Go to access management in your service and add credentials.
 Then go to web client and start the cloud with your credentials.
 
 ![alt text](image-9.png)
+
+You can try to connect to the wifi and MQTT broker. Subscribe on web client and you can see the data.
+
+![alt text](image-4.png)
+
+![alt text](image-6.png)
+
+# Step 3 (InfluxDB):
 
