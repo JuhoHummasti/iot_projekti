@@ -124,7 +124,7 @@ class HistoryViewModel(
      * Load history data for both temperature & pressure from InfluxDB.
      * Uses the selected time range and periodOffset.
      */
-    private fun refreshHistory() {
+    fun refreshHistory() {
         uiState = HistoryUiState.Loading
 
         val (startExpr, stopExpr) = computeRangeExpressions(selectedRange, periodOffset)

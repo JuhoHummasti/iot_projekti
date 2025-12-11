@@ -4,6 +4,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
@@ -11,6 +12,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import fi.oulu.picow.sensormonitor.model.Measurement
+import kotlinx.coroutines.delay
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -19,7 +21,13 @@ fun MainDashboardScreen(
     onOpenHistory: () -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsState()
-
+    // Auto-refresh current measurement every 10 seconds while this screen is visible
+    LaunchedEffect(Unit) {
+        while (true) {
+            delay(10_000L)   // 10 seconds – adjust if needed
+            viewModel.refresh()
+        }
+    }
     Scaffold(
         topBar = {
             TopAppBar(

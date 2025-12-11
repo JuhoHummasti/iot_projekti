@@ -24,6 +24,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -36,6 +37,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import fi.oulu.picow.sensormonitor.data.HistoryPoint
+import kotlinx.coroutines.delay
 import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -47,7 +49,17 @@ fun HistoryScreen(
     val currentRange = viewModel.selectedRange
     val periodLabel = viewModel.getCurrentPeriodLabel()
     val uiState = viewModel.uiState
-
+    // Auto-refresh only when looking at the current period (offset = 0)
+    LaunchedEffect(currentRange, viewModel.periodOffset) {
+        if (viewModel.periodOffset == 0) {
+            while (true) {
+                delay(60_000L)   // 60 seconds – adjust as needed
+                viewModel.refreshHistory()
+            }
+        }
+        // When offset != 0 (yesterday/last week/etc.), this effect does nothing
+        // and any previous loop is cancelled when LaunchedEffect keys change.
+    }
     Scaffold(
         topBar = {
             TopAppBar(
