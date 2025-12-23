@@ -1,28 +1,12 @@
 package fi.oulu.picow.sensormonitor.ui.history
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilterChip
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
@@ -40,6 +24,17 @@ import fi.oulu.picow.sensormonitor.data.HistoryPoint
 import kotlinx.coroutines.delay
 import java.util.Locale
 
+/**
+ * Top-level screen for displaying historical temperature and pressure data.
+ *
+ * Responsibilities:
+ * - Bind UI to [HistoryViewModel] state
+ * - Handle range selection and period navigation
+ * - Trigger auto-refresh when viewing the current (live) period
+ *
+ * The screen itself remains stateless; all business logic is delegated
+ * to the ViewModel.
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HistoryScreen(
@@ -49,22 +44,29 @@ fun HistoryScreen(
     val currentRange = viewModel.selectedRange
     val periodLabel = viewModel.getCurrentPeriodLabel()
     val uiState = viewModel.uiState
-    // Auto-refresh only when looking at the current period (offset = 0)
+
+    /**
+     * Auto-refresh loop:
+     * - Enabled only when viewing the current period (offset == 0)
+     * - Suspends for 60 seconds between refreshes
+     * - Automatically cancelled and restarted when keys change
+     */
     LaunchedEffect(currentRange, viewModel.periodOffset) {
         if (viewModel.periodOffset == 0) {
             while (true) {
-                delay(60_000L)   // 60 seconds – adjust as needed
+                delay(60_000L)
                 viewModel.refreshHistory()
             }
         }
-        // When offset != 0 (yesterday/last week/etc.), this effect does nothing
-        // and any previous loop is cancelled when LaunchedEffect keys change.
+        // When offset != 0 (past periods), the effect does nothing.
     }
+
     Scaffold(
         topBar = {
             TopAppBar(
                 title = { Text(text = "History") },
                 navigationIcon = {
+                    // Optional back navigation for parent-controlled screens
                     if (onBack != null) {
                         IconButton(onClick = onBack) {
                             Icon(
@@ -84,11 +86,14 @@ fun HistoryScreen(
                 .fillMaxSize(),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
+
+            // Range selector (24h / week / month / year)
             RangeSelectorRow(
                 selected = currentRange,
                 onSelect = { range -> viewModel.selectRange(range) }
             )
 
+            // Period navigation (previous / next window)
             PeriodNavigationRow(
                 label = periodLabel,
                 canGoNext = viewModel.periodOffset < 0,
@@ -96,6 +101,7 @@ fun HistoryScreen(
                 onNext = { viewModel.goToNextPeriod() }
             )
 
+            // UI state rendering
             when (uiState) {
                 is HistoryUiState.Loading -> {
                     LoadingHistoryCard(
@@ -127,6 +133,9 @@ fun HistoryScreen(
     }
 }
 
+/**
+ * Card container holding the dual-axis history chart and summary information.
+ */
 @Composable
 private fun HistoryChartCard(
     temperaturePoints: List<HistoryPoint>,
@@ -151,7 +160,8 @@ private fun HistoryChartCard(
                     .padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                // Header
+
+                // Header describing range and period
                 Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     Text(
                         text = "Temperature & pressure history",
@@ -164,6 +174,7 @@ private fun HistoryChartCard(
                     )
                 }
 
+                // Empty state
                 if (temperaturePoints.isEmpty() && pressurePoints.isEmpty()) {
                     Box(
                         modifier = Modifier
@@ -191,7 +202,7 @@ private fun HistoryChartCard(
                         )
                     }
 
-                    // Legend + min / max summary under the chart
+                    // Min / max summary legend
                     val tempValues = temperaturePoints.map { it.value }
                     val presValues = pressurePoints.map { it.value }
 
@@ -224,11 +235,19 @@ private fun HistoryChartCard(
     }
 }
 
+/**
+ * Custom canvas-based chart rendering two independent Y-axes:
+ * - Temperature on the left
+ * - Pressure on the right
+ *
+ * Both series share the same X-axis (time).
+ */
 @Composable
 private fun DualHistoryChart(
     temperaturePoints: List<HistoryPoint>,
     pressurePoints: List<HistoryPoint>
 ) {
+    // Colors derived from Material theme for consistency
     val axisColor = MaterialTheme.colorScheme.outline
     val gridColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)
     val tempColor = MaterialTheme.colorScheme.primary
@@ -237,10 +256,12 @@ private fun DualHistoryChart(
     val density = androidx.compose.ui.platform.LocalDensity.current
 
     androidx.compose.foundation.Canvas(
-        modifier = Modifier
-            .fillMaxSize()
+        modifier = Modifier.fillMaxSize()
     ) {
-        // --- Layout constants (in px) ---
+        /**
+         * All drawing math is done in pixels inside the Canvas scope.
+         * Padding values reserve space for axis labels.
+         */
         val leftPadding = 48f
         val rightPadding = 48f
         val topPadding = 16f
@@ -255,9 +276,13 @@ private fun DualHistoryChart(
         val chartWidth = chartRight - leftPadding
         val chartHeight = chartBottom - topPadding
 
+        // Abort drawing if layout is invalid
         if (chartWidth <= 0f || chartHeight <= 0f) return@Canvas
 
-        // --- Time handling: map timestamps -> X coordinate ---
+        /**
+         * Parses RFC3339 timestamps from InfluxDB into epoch milliseconds.
+         * Invalid timestamps are safely ignored.
+         */
         fun parseTimeMillis(p: HistoryPoint): Long? =
             kotlin.runCatching { java.time.Instant.parse(p.time).toEpochMilli() }.getOrNull()
 
@@ -270,19 +295,20 @@ private fun DualHistoryChart(
         var minTime = allTimes.minOrNull()!!
         var maxTime = allTimes.maxOrNull()!!
 
+        // Expand range slightly if all points share the same timestamp
         if (minTime == maxTime) {
-            // Expand 1 minute around single point so we get a visible line
             minTime -= 60_000L
             maxTime += 60_000L
         }
 
+        // Maps time -> X coordinate
         fun xForTime(tMillis: Long): Float {
             val fraction = (tMillis - minTime).toFloat() /
                     (maxTime - minTime).toFloat()
             return leftPadding + fraction * chartWidth
         }
 
-        // --- Draw axes ---
+        // --- Axes ---
         drawLine(
             color = axisColor,
             start = Offset(leftPadding, topPadding),
@@ -296,7 +322,7 @@ private fun DualHistoryChart(
             strokeWidth = 2f
         )
 
-        // --- Horizontal grid lines (4) ---
+        // --- Grid lines ---
         val gridLines = 4
         for (i in 1 until gridLines) {
             val y = topPadding + chartHeight * (i.toFloat() / gridLines.toFloat())
@@ -308,14 +334,15 @@ private fun DualHistoryChart(
             )
         }
 
-        // --- Temperature Y scale (left) ---
+        /**
+         * Temperature scale (left axis)
+         */
         val tempValues = temperaturePoints.map { it.value }
         var tMin = 0.0
         var tMax = 0.0
         if (tempValues.isNotEmpty()) {
             tMin = tempValues.minOrNull()!!
             tMax = tempValues.maxOrNull()!!
-
             if (tMin == tMax) {
                 tMin -= 1.0
                 tMax += 1.0
@@ -326,17 +353,18 @@ private fun DualHistoryChart(
             val fraction = if (tMax == tMin) 0.5
             else (value - tMin) / (tMax - tMin)
             val clamped = fraction.coerceIn(0.0, 1.0)
-            return (chartBottom - (clamped * chartHeight).toFloat())
+            return chartBottom - (clamped * chartHeight).toFloat()
         }
 
-        // --- Pressure Y scale (right) ---
+        /**
+         * Pressure scale (right axis)
+         */
         val presValues = pressurePoints.map { it.value }
         var pMin = 0.0
         var pMax = 0.0
         if (presValues.isNotEmpty()) {
             pMin = presValues.minOrNull()!!
             pMax = presValues.maxOrNull()!!
-
             if (pMin == pMax) {
                 pMin -= 1.0
                 pMax += 1.0
@@ -347,10 +375,10 @@ private fun DualHistoryChart(
             val fraction = if (pMax == pMin) 0.5
             else (value - pMin) / (pMax - pMin)
             val clamped = fraction.coerceIn(0.0, 1.0)
-            return (chartBottom - (clamped * chartHeight).toFloat())
+            return chartBottom - (clamped * chartHeight).toFloat()
         }
 
-        // --- Draw temperature series (left scale) ---
+        // --- Temperature series ---
         if (tempValues.isNotEmpty()) {
             val path = Path()
             var started = false
@@ -366,14 +394,10 @@ private fun DualHistoryChart(
                 }
             }
 
-            drawPath(
-                path = path,
-                color = tempColor,
-                style = Stroke(width = 3f)
-            )
+            drawPath(path, tempColor, style = Stroke(width = 3f))
         }
 
-        // --- Draw pressure series (right scale) ---
+        // --- Pressure series ---
         if (presValues.isNotEmpty()) {
             val path = Path()
             var started = false
@@ -389,13 +413,9 @@ private fun DualHistoryChart(
                 }
             }
 
-            drawPath(
-                path = path,
-                color = presColor,
-                style = Stroke(width = 2f)
-            )
+            drawPath(path, presColor, style = Stroke(width = 2f))
 
-            // Right-side axis line for pressure
+            // Right-side axis for pressure
             drawLine(
                 color = axisColor,
                 start = Offset(chartRight, topPadding),
@@ -404,9 +424,10 @@ private fun DualHistoryChart(
             )
         }
 
-        // --- Axis labels (temp left, pressure right, time bottom) ---
+        /**
+         * Axis labels (Y left/right, X bottom)
+         */
         val stepsY = 4
-
         val textSizePx = with(density) { 10.sp.toPx() }
         val labelPadding = with(density) { 4.dp.toPx() }
 
@@ -443,7 +464,7 @@ private fun DualHistoryChart(
         }
 
         // Bottom X labels (time)
-        val timeTicks = 3 // min, middle, max
+        val timeTicks = 3
         paint.textAlign = android.graphics.Paint.Align.CENTER
 
         fun formatTime(millis: Long): String {
@@ -451,12 +472,7 @@ private fun DualHistoryChart(
             val localTime = instant
                 .atZone(java.time.ZoneId.systemDefault())
                 .toLocalTime()
-            return String.format(
-                Locale.US,
-                "%02d:%02d",
-                localTime.hour,
-                localTime.minute
-            )
+            return String.format(Locale.US, "%02d:%02d", localTime.hour, localTime.minute)
         }
 
         for (i in 0..timeTicks) {
@@ -464,12 +480,14 @@ private fun DualHistoryChart(
             val t = (minTime + ((maxTime - minTime) * fraction)).toLong()
             val x = xForTime(t)
             val y = chartBottom + textSizePx + labelPadding / 2f
-            val label = formatTime(t)
-            drawContext.canvas.nativeCanvas.drawText(label, x, y, paint)
+            drawContext.canvas.nativeCanvas.drawText(formatTime(t), x, y, paint)
         }
     }
 }
 
+/**
+ * Loading placeholder shown while history data is being fetched.
+ */
 @Composable
 private fun LoadingHistoryCard(
     modifier: Modifier = Modifier
@@ -488,6 +506,9 @@ private fun LoadingHistoryCard(
     }
 }
 
+/**
+ * Error placeholder shown when history loading fails.
+ */
 @Composable
 private fun ErrorHistoryCard(
     modifier: Modifier = Modifier,
@@ -513,6 +534,9 @@ private fun ErrorHistoryCard(
     }
 }
 
+/**
+ * Horizontal selector for choosing a predefined history range.
+ */
 @Composable
 private fun RangeSelectorRow(
     selected: HistoryRange,
@@ -523,9 +547,8 @@ private fun RangeSelectorRow(
         horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         HistoryRange.entries.forEach { range ->
-            val isSelected = range == selected
             FilterChip(
-                selected = isSelected,
+                selected = range == selected,
                 onClick = { onSelect(range) },
                 label = { Text(text = range.label) }
             )
@@ -533,6 +556,9 @@ private fun RangeSelectorRow(
     }
 }
 
+/**
+ * Navigation row for moving between adjacent time periods.
+ */
 @Composable
 private fun PeriodNavigationRow(
     label: String,

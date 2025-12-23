@@ -14,27 +14,63 @@ import fi.oulu.picow.sensormonitor.ui.MeasurementViewModel
 import fi.oulu.picow.sensormonitor.ui.history.HistoryScreen
 import fi.oulu.picow.sensormonitor.ui.history.HistoryViewModel
 
+/**
+ * Main entry point of the application.
+ *
+ * Hosts the Compose UI and provides simple in-memory navigation between
+ * the main dashboard and the history screen.
+ *
+ * Navigation is intentionally lightweight (enum-based) to avoid introducing
+ * the Navigation component for a small app.
+ */
 class MainActivity : ComponentActivity() {
 
+    /**
+     * ViewModel scoped to the Activity lifecycle.
+     *
+     * Shared across composables so the latest measurement survives
+     * configuration changes and screen navigation.
+     */
     private val measurementViewModel: MeasurementViewModel by viewModels()
-    enum class AppScreen { MAIN, HISTORY }
+
+    /**
+     * Top-level navigation destinations within the app.
+     */
+    enum class AppScreen {
+        MAIN,
+        HISTORY
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
         setContent {
-            // Simple navigation state: MAIN or HISTORY
 
-            var currentScreen by remember { mutableStateOf(AppScreen.MAIN) }
+            /**
+             * Simple navigation state.
+             *
+             * Stored in Compose memory and reset only when the Activity
+             * is destroyed.
+             */
+            var currentScreen by remember {
+                mutableStateOf(AppScreen.MAIN)
+            }
 
-            // History VM created in composition
+            /**
+             * History ViewModel created inside the Compose hierarchy.
+             *
+             * Scoped to the navigation graph (here: the Activity),
+             * but owned by the history screen.
+             */
             val historyViewModel: HistoryViewModel = viewModel()
 
             when (currentScreen) {
+
                 AppScreen.MAIN -> {
                     MainDashboardScreen(
                         viewModel = measurementViewModel,
                         onOpenHistory = {
+                            // Navigate to history screen
                             currentScreen = AppScreen.HISTORY
                         }
                     )
@@ -44,6 +80,7 @@ class MainActivity : ComponentActivity() {
                     HistoryScreen(
                         viewModel = historyViewModel,
                         onBack = {
+                            // Navigate back to main dashboard
                             currentScreen = AppScreen.MAIN
                         }
                     )
